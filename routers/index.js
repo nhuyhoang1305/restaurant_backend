@@ -1,10 +1,10 @@
 var API_KEY = 1305;
-var SECRET_KEY = "K62_UET";
+const SECRET_KEY = "K62_UET";
 
-var express = require('express');
-var moment = require('moment');
-var jwt = require('jsonwebtoken');
-var exjwt = require('express-jwt');
+const express = require('express');
+const moment = require('moment');
+const jwt = require('jsonwebtoken');
+const exjwt = require('express-jwt');
 
 const jwtMW = exjwt({
     secret: SECRET_KEY
@@ -132,6 +132,90 @@ router.post('/user', jwtMW, function(req, res, next){
 });
 
 /*===============================================================
+RESTAURANTOWNER TABLE
+GET/POST
+================================================================*/
+
+router.get('/restaurantowner', jwtMW,function(req, res, next){
+
+    var authorization = req.headers.authorization, decoded;
+    try{
+        decoded = jwt.verify(authorization.split(' ')[1], SECRET_KEY);
+    }
+    catch(err){
+        return res.status(401).send('unauthorized');
+    }
+
+    const fbid = decoded.fbid;
+
+    if (fbid != undefined){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT userPhone, name, status, restaurantId, fbid FROM Restaurantowner WHERE fbid=?', [fbid], function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: true, result: rows}));
+                    }
+                    else{
+                        res.send(JSON.stringify({success: false, message: "Empty"}));
+                    }
+                }   
+
+            })
+        })
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Miss fbid'}));
+    }
+
+});
+
+router.post('/restaurantowner', jwtMW, function(req, res, next){
+    
+    var authorization = req.headers.authorization, decoded;
+    try{
+        decoded = jwt.verify(authorization.split(' ')[1], SECRET_KEY);
+    }
+    catch(err){
+        return res.status(401).send('unauthorized');
+    }
+
+    const fbid = decoded.fbid;
+
+    const restaurantowner_phone = req.body.restaurantownerPhone;
+    const restaurantowner_name = req.body.restaurantownerName;
+    const restaurantowner_id = req.body.restaurantownerId;
+    const restaurantowner_status = req.body.restaurantownerStatus;
+
+
+    if (fbid != undefined){
+        req.getConnection(function(error, conn){
+            conn.query('INSERT INTO User(FBID, UserPhone, Name, RestaurantId, Status) VALUES(?, ?, ?, ?) ON DUPLICATE KEY UPDATE Name=?, UserPhone=?', [fbid, restaurantowner_phone, restaurantowner_name, restaurantowner_id, restaurantowner_status, restaurantowner_name, restaurantowner_phone], function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.affectedRows > 0){
+                        res.send(JSON.stringify({success: true, message: "Success"}));
+                    }  
+                }   
+
+            })
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing fbid in body'}));
+    }
+
+});
+
+/*===============================================================
 FAVORITE TABLE
 GET/POST/DELETE
 ================================================================*/
@@ -145,7 +229,7 @@ router.get('/favorite', jwtMW, function(req, res, next){
         return res.status(401).send('unauthorized');
     }
 
-    var fbid = decoded.fbid;
+    const fbid = decoded.fbid;
 
     if (fbid != undefined){
         req.getConnection(function(error, conn){
@@ -181,9 +265,9 @@ router.get('/favoriteByRestaurant', jwtMW, function(req, res, next){
         return res.status(401).send('unauthorized');
     }
 
-    var fbid = decoded.fbid;
-    var restaurant_id = req.query.restaurantId;
-    if (fbid != undefined){
+    const fbid = decoded.fbid;
+    const restaurant_id = req.query.restaurantId;
+    if (fbid){
         req.getConnection(function(error, conn){
             conn.query('SELECT fbid, foodId, restaurantId, restaurantName, foodName, foodImage, price FROM Favorite WHERE fbid=? AND RestaurantId=?', [fbid, restaurant_id], function(err, rows, fields){
 
@@ -217,16 +301,16 @@ router.post('/favorite', jwtMW,function(req, res, next){
         return res.status(401).send('unauthorized');
     }
 
-    var fbid = decoded.fbid;
-    var food_id = req.body.foodId;
-    var restaurant_id = req.body.restaurantId;
-    var restaurant_name = req.body.restaurantName;
-    var food_name = req.body.foodName;
-    var food_image = req.body.foodImage;
-    var food_price = req.body.price;
+    const fbid = decoded.fbid;
+    const food_id = req.body.foodId;
+    const restaurant_id = req.body.restaurantId;
+    const restaurant_name = req.body.restaurantName;
+    const food_name = req.body.foodName;
+    const food_image = req.body.foodImage;
+    const food_price = req.body.price;
 
 
-    if (fbid != undefined){
+    if (fbid){
         req.getConnection(function(error, conn){
             conn.query('INSERT INTO Favorite(FBID, FoodId, RestaurantId, RestaurantName, FoodName, FoodImage, Price) VALUES(?, ?, ?, ?, ?, ?, ?)', [fbid, food_id, restaurant_id, restaurant_name, food_name, food_image, food_price], function(err, rows, fields){
 
@@ -257,11 +341,11 @@ router.delete('/favorite', jwtMW, function(req, res, next){
         return res.status(401).send('unauthorized');
     }
 
-    var fbid = decoded.fbid;
-    var food_id = req.query.foodId;
-    var restaurant_id = req.query.restaurantId;
+    const fbid = decoded.fbid;
+    const food_id = req.query.foodId;
+    const restaurant_id = req.query.restaurantId;
 
-    if (fbid != undefined){
+    if (fbid){
         req.getConnection(function(error, conn){
             conn.query('DELETE FROM Favorite WHERE fbid=? AND FoodId=? AND RestaurantId=?', [fbid, food_id, restaurant_id], function(err, rows, fields){
 
@@ -548,7 +632,7 @@ router.get('/addon',jwtMW, function(req, res, next){
     //console.log(restaurant_id);
     if (food_id != undefined){
         req.getConnection(function(error, conn){
-            conn.query('SELECT id, description, extraPrice FROM Addon WHERE id in (SELECT addonId FROM Food_Addon WHERE foodId = ?)', [food_id]
+            conn.query('SELECT id, name, description, extraPrice FROM Addon WHERE id in (SELECT addonId FROM Food_Addon WHERE foodId = ?)', [food_id]
             , function(err, rows, fields){
 
                 if (err){
@@ -582,7 +666,7 @@ router.get('/order', jwtMW, function(req, res, next){
     var startIndex = parseInt(req.query.from);
     var endIndex = parseInt(req.query.to);
     //console.log(restaurant_id);
-    if (order_fbid != undefined){
+    if (order_fbid){
         req.getConnection(function(error, conn){
             conn.query('SELECT OrderId, OrderFBID, OrderPhone, OrderName, OrderAddress, OrderStatus, OrderDate,'
             + 'RestaurantId, TransactionId, '
@@ -591,7 +675,6 @@ router.get('/order', jwtMW, function(req, res, next){
             + ' ORDER BY OrderId DESC LIMIT ?, ?'
             , [order_fbid, startIndex, endIndex]
             , function(err, rows, fields){
-
                 if (err){
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
@@ -599,6 +682,7 @@ router.get('/order', jwtMW, function(req, res, next){
                 else {
                     if (rows.length > 0){
                         res.send(JSON.stringify({success: true, result: rows}));
+						
                     }
                     else{
                         res.send(JSON.stringify({success: false, message: "Empty"}));
@@ -617,7 +701,7 @@ router.get('/maxOrder', jwtMW, function(req, res, next){
     var order_fbid = req.query.orderFBID;
 
     //console.log(restaurant_id);
-    if (order_fbid != undefined){
+    if (order_fbid){
         req.getConnection(function(error, conn){
             conn.query('SELECT COUNT(orderId) as maxRowNum FROM `order` WHERE OrderFBID = ? AND NumOfitem > 0'
             + ' ORDER BY OrderId DESC'
@@ -647,26 +731,36 @@ router.get('/maxOrder', jwtMW, function(req, res, next){
 
 router.post('/createOrder', jwtMW, function(req, res, next){
 
-    var order_phone = req.body.orderPhone;
-    var order_name = req.body.orderName;
-    var order_address = req.body.orderAddress;
-    var order_date = moment(req.body.orderDate, "MM/DD/YYYY").format("YYYY-MM-DD");
-    var restaurant_id = req.body.restaurantId;
-    var transaction_id = req.body.transactionId;
-    var cod = (req.body.cod == "true");
-    var total_price = req.body.totalPrice;
-    var num_of_item = req.body.numOfItem;
-    var order_fbid = req.body.orderFBID;
+	const authorization = req.headers.authorization; let decoded;
+    try{
+        decoded = jwt.verify(authorization.split(' ')[1], SECRET_KEY);
+    }
+    catch(err){
+        return res.status(401).send('unauthorized');
+    }
+
+    const order_fbid = decoded.fbid;
+
+    const order_phone = req.body.orderPhone;
+    const order_name = req.body.orderName;
+    const order_address = req.body.orderAddress;
+    const order_date = moment(req.body.orderDate, "MM/DD/YYYY").format("YYYY-MM-DD");
+    const restaurant_id = req.body.restaurantId;
+    const transaction_id = req.body.transactionId;
+    const cod = (req.body.cod == "true");
+    const total_price = req.body.totalPrice;
+    const num_of_item = req.body.numOfItem;
 
 
 
-    if (order_fbid != undefined){
+    if (order_fbid){
         req.getConnection(function(error, conn){
             conn.query('INSERT INTO `order`(OrderFBID, OrderPhone, OrderName, OrderAddress, OrderStatus, OrderDate, RestaurantId' 
-            + ',TransactionId, COD, TotalPrice, NumOfIteam) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            + ',TransactionId, COD, TotalPrice, NumOfItem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             , [order_fbid, order_phone, order_name, order_address, 0, order_date, restaurant_id, transaction_id, cod, total_price, num_of_item], function(err, rows, fields){
 
                 if (err){
+					console.log(err);
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
                 }
@@ -700,7 +794,7 @@ GET / POST
 router.get('/orderDetail', jwtMW, function(req, res, next){
     var order_id = req.query.orderId;
     //console.log(restaurant_id);
-    if (order_id != undefined){
+    if (order_id){
         req.getConnection(function(error, conn){
             conn.query('SELECT OrderId, itemId, quantity, discount, extraPrice, size, addOn FROM OrderDetail WHERE orderId=?'
             , [order_id]
@@ -742,7 +836,7 @@ router.post('/updateOrder', jwtMW, function(req, res, next){
 
 
 
-    if (order_id != undefined && order_detail != undefined){
+    if (order_id && order_detail){
 
         var data_insert = [];
         for (var i = 0; i < order_detail.length; ++i){
@@ -794,8 +888,8 @@ router.get('/token', jwtMW, function(req, res, next){
     }
 
     var fbid = decoded.fbid;
-
-    if (fbid != undefined){
+	
+    if (fbid){
         req.getConnection(function(error, conn){
             conn.query('SELECT fbid, token FROM Token WHERE fbid=?', [fbid], function(err, rows, fields){
 
