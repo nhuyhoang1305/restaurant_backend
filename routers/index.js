@@ -150,14 +150,15 @@ router.get('/restaurantowner', jwtMW,function(req, res, next){
 
     if (fbid != undefined){
         req.getConnection(function(error, conn){
-            conn.query('SELECT userPhone, name, status, restaurantId, fbid FROM Restaurantowner WHERE fbid=?', [fbid], function(err, rows, fields){
-
+            conn.query('SELECT userPhone, name, CASE WHEN status=0 THEN \'FALSE\' ELSE \'TRUE\' END as status, restaurantId, fbid FROM restaurantowner WHERE fbid=?', [fbid], function(err, rows, fields){
+                
                 if (err){
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
                 }
                 else {
                     if (rows.length > 0){
+                        console.log(JSON.stringify({success: true, result: rows}));
                         res.send(JSON.stringify({success: true, result: rows}));
                     }
                     else{
@@ -194,8 +195,8 @@ router.post('/restaurantowner', jwtMW, function(req, res, next){
 
     if (fbid != undefined){
         req.getConnection(function(error, conn){
-            conn.query('INSERT INTO User(FBID, UserPhone, Name, RestaurantId, Status) VALUES(?, ?, ?, ?) ON DUPLICATE KEY UPDATE Name=?, UserPhone=?', [fbid, restaurantowner_phone, restaurantowner_name, restaurantowner_id, restaurantowner_status, restaurantowner_name, restaurantowner_phone], function(err, rows, fields){
-
+            conn.query('INSERT INTO Restaurantowner(FBID, UserPhone, Name, RestaurantId, Status) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE Name=?, UserPhone=?', [fbid, restaurantowner_phone, restaurantowner_name, restaurantowner_id, restaurantowner_status, restaurantowner_name, restaurantowner_phone], function(err, rows, fields){
+                //console.log(rows);
                 if (err){
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
@@ -661,6 +662,81 @@ ORDER TABLE
 GET / POST
 ================================================================*/
 
+router.get('/orderbyrestaurant', jwtMW, function(req, res, next){
+
+    const restaurant_id = req.query.restaurantId;
+    var startIndex = parseInt(req.query.from);
+    var endIndex = parseInt(req.query.to);
+
+    // set defaut if user not pass params
+    if (isNaN(startIndex)) startIndex = 0;
+    if (isNaN(endIndex)) endIndex = 10;
+
+    //console.log(restaurant_id);
+    if (restaurant_id){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT OrderId, OrderFBID, OrderPhone, OrderName, OrderAddress, OrderStatus, OrderDate,'
+            + 'RestaurantId, TransactionId, '
+            + 'CASE WHEN COD = 1 THEN \'TRUE\' ELSE \'FALSE\' END as COD,'
+            + 'TotalPrice, NumOfItem FROM `order` WHERE restaurantId = ? AND NumOfitem > 0'
+            + ' ORDER BY OrderId DESC LIMIT ?, ?'
+            , [restaurant_id, startIndex, endIndex]
+            , function(err, rows, fields){
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: true, result: rows}));
+						
+                    }
+                    else{
+                        res.send(JSON.stringify({success: false, message: "Empty"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing restaurant_id'}));
+    }
+});
+
+router.get('/maxorderbyrestaurant', jwtMW, function(req, res, next){
+    
+    const restaurantId = req.query.restaurantId;
+
+    //console.log(restaurant_id);
+    if (restaurantId){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT COUNT(orderId) as maxRowNum FROM `order` WHERE restaurantId = ? AND NumOfitem > 0'
+            + ' ORDER BY OrderId DESC'
+            , [restaurantId]
+            , function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: true, result: rows}));
+                    }
+                    else{
+                        res.send(JSON.stringify({success: false, message: "Empty"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing restaurantId'}));
+    }
+});
+
 router.get('/order', jwtMW, function(req, res, next){
     var order_fbid = req.query.orderFBID;
     var startIndex = parseInt(req.query.from);
@@ -790,6 +866,39 @@ router.post('/createOrder', jwtMW, function(req, res, next){
 ORDERDETAIL TABLE
 GET / POST
 ================================================================*/
+
+router.get('/orderdetailbyrestaurant', jwtMW, function(req, res, next){
+    var order_id = req.query.orderId;
+    //console.log(restaurant_id);
+    if (order_id){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT OrderDetail.orderId, itemId, quantity, size, addOn, orderFBID, name, description, image FROM OrderDetail'
+            + ' INNER JOIN `Order` ON OrderDetail.orderId = `Order`.orderId'
+            + ' INNER JOIN Food ON OrderDetail.itemId = Food.ID'
+            + ' WHERE OrderDetail.orderId=?'
+            , [order_id]
+            , function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: true, result: rows}));
+                    }
+                    else{
+                        res.send(JSON.stringify({success: false, message: "Empty"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing orderId'}));
+    }
+});
 
 router.get('/orderDetail', jwtMW, function(req, res, next){
     var order_id = req.query.orderId;
@@ -927,13 +1036,13 @@ router.post('/token', jwtMW, function(req, res, next){
 
     var fbid = decoded.fbid;
     //console.log(req.body);
-    var user_token = req.body.myToken;
+    var user_token = req.body.token;
     //console.log(user_token);
 
     if (fbid != undefined){
         req.getConnection(function(error, conn){
             var sql = "INSERT INTO Token(FBID, Token) VALUES ('" + fbid + "', '" + user_token +"') ON DUPLICATE KEY UPDATE Token='" + user_token + "'";
-            console.log(sql);
+            //console.log(sql);
             conn.query(sql, function(err, rows, fields){
                 
                 if (err){
