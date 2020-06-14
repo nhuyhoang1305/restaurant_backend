@@ -158,7 +158,7 @@ router.get('/restaurantowner', jwtMW,function(req, res, next){
                 }
                 else {
                     if (rows.length > 0){
-                        console.log(JSON.stringify({success: true, result: rows}));
+                        //console.log(JSON.stringify({success: true, result: rows}));
                         res.send(JSON.stringify({success: true, result: rows}));
                     }
                     else{
@@ -862,6 +862,40 @@ router.post('/createOrder', jwtMW, function(req, res, next){
     }
 });
 
+router.put('/updateOrder', jwtMW, function(req, res, next){
+
+    const order_id = parseInt(req.body.orderId);
+    const order_status = parseInt(req.body.orderStatus);
+
+    if (order_id != undefined && order_status != undefined){
+
+        if (Number.isInteger(order_id) && Number.isInteger(order_status)){
+            req.getConnection(function(error, conn){
+                conn.query('UPDATE `Order` SET OrderStatus = ? WHERE OrderId = ? '
+                , [order_status, order_id], function(err, rows, fields){
+    
+                    if (err){
+                        res.status(500);
+                        res.send(JSON.stringify({success: false, message: err.message}));
+                    }
+                    else {
+                        res.send(JSON.stringify({success: true, message: "update success"}));
+                        //console.log("hihih");
+                    }   
+    
+                })
+            });
+        }
+        else{
+            res.send(JSON.stringify({success: false, message: 'order_id and order_status must be integer'}));
+        }
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing something in body'}));
+    }
+
+});
+
 /*===============================================================
 ORDERDETAIL TABLE
 GET / POST
@@ -996,12 +1030,11 @@ router.get('/token', jwtMW, function(req, res, next){
         return res.status(401).send('unauthorized');
     }
 
-    var fbid = decoded.fbid;
-	
-    if (fbid){
+    var fbid = req.query.key;
+    if (fbid != undefined){
         req.getConnection(function(error, conn){
             conn.query('SELECT fbid, token FROM Token WHERE fbid=?', [fbid], function(err, rows, fields){
-
+                //console.log(fbid);
                 if (err){
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
