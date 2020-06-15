@@ -268,7 +268,7 @@ router.get('/favoriteByRestaurant', jwtMW, function(req, res, next){
 
     const fbid = decoded.fbid;
     const restaurant_id = req.query.restaurantId;
-    if (fbid){
+    if (fbid != undefined){
         req.getConnection(function(error, conn){
             conn.query('SELECT fbid, foodId, restaurantId, restaurantName, foodName, foodImage, price FROM Favorite WHERE fbid=? AND RestaurantId=?', [fbid, restaurant_id], function(err, rows, fields){
 
@@ -311,7 +311,7 @@ router.post('/favorite', jwtMW,function(req, res, next){
     const food_price = req.body.price;
 
 
-    if (fbid){
+    if (fbid != undefined){
         req.getConnection(function(error, conn){
             conn.query('INSERT INTO Favorite(FBID, FoodId, RestaurantId, RestaurantName, FoodName, FoodImage, Price) VALUES(?, ?, ?, ?, ?, ?, ?)', [fbid, food_id, restaurant_id, restaurant_name, food_name, food_image, food_price], function(err, rows, fields){
 
@@ -346,7 +346,7 @@ router.delete('/favorite', jwtMW, function(req, res, next){
     const food_id = req.query.foodId;
     const restaurant_id = req.query.restaurantId;
 
-    if (fbid){
+    if (fbid != undefined){
         req.getConnection(function(error, conn){
             conn.query('DELETE FROM Favorite WHERE fbid=? AND FoodId=? AND RestaurantId=?', [fbid, food_id, restaurant_id], function(err, rows, fields){
 
@@ -827,9 +827,11 @@ router.post('/createOrder', jwtMW, function(req, res, next){
     const total_price = req.body.totalPrice;
     const num_of_item = req.body.numOfItem;
 
+    //console.log(req.body);
 
 
-    if (order_fbid){
+
+    if (order_fbid != undefined){
         req.getConnection(function(error, conn){
             conn.query('INSERT INTO `order`(OrderFBID, OrderPhone, OrderName, OrderAddress, OrderStatus, OrderDate, RestaurantId' 
             + ',TransactionId, COD, TotalPrice, NumOfItem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -901,6 +903,33 @@ ORDERDETAIL TABLE
 GET / POST
 ================================================================*/
 
+router.get('/hotFood', jwtMW, function(req, res, next){
+   
+    const query = 'SELECT tempTable.itemId, tempTable.name, ROUND((COUNT(tempTable.itemId)*100.0 / (SELECT COUNT(*) FROM OrderDetail)), 2) as percent'
+    + ' FROM (SELECT itemId, name FROM Food INNER JOIN OrderDetail ON Food.ID = OrderDetail.ItemId) AS tempTable'
+    + ' GROUP BY tempTable.itemId, tempTable.name'
+    + ' LIMIT 10';
+
+    req.getConnection(function(error, conn){
+        conn.query(query, function(err, rows, fields){
+
+            if (err){
+                res.status(500);
+                res.send(JSON.stringify({success: false, message: err.message}));
+            }
+            else {
+                if (rows.length > 0){
+                    res.send(JSON.stringify({success: true, result: rows}));
+                }
+                else{
+                    res.send(JSON.stringify({success: false, message: "Empty"}));
+                }
+            }   
+
+        });
+    });
+});
+
 router.get('/orderdetailbyrestaurant', jwtMW, function(req, res, next){
     var order_id = req.query.orderId;
     //console.log(restaurant_id);
@@ -969,6 +998,9 @@ router.post('/updateOrder', jwtMW, function(req, res, next){
     var order_id = req.body.orderId;
     var order_detail;
 
+    //console.log(req.body);
+
+
     try {
         order_detail = JSON.parse(req.body.orderDetail);
     }
@@ -994,10 +1026,10 @@ router.post('/updateOrder', jwtMW, function(req, res, next){
                 parseFloat(order_detail[i]["foodExtraPrice"])
             ]
         }
-        //console.log(data_insert[0][6]);
+        //console.log(data_insert);
         req.getConnection(function(error, conn){
-            conn.query('INSERT INTO OrderDetail(OrderId, ItemId, Quantity, Price, Discount, Size, Addon, ExtraPrice) VALUE (?) '
-            , data_insert, function(err, rows, fields){
+            conn.query('INSERT INTO OrderDetail(OrderId, ItemId, Quantity, Price, Discount, Size, Addon, ExtraPrice) VALUE ? '
+            , [data_insert], function(err, rows, fields){
 
                 if (err){
                     res.status(500);
