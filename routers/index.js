@@ -679,7 +679,7 @@ router.get('/orderbyrestaurant', jwtMW, function(req, res, next){
             + 'RestaurantId, TransactionId, '
             + 'CASE WHEN COD = 1 THEN \'TRUE\' ELSE \'FALSE\' END as COD,'
             + 'TotalPrice, NumOfItem FROM `order` WHERE restaurantId = ? AND NumOfitem > 0'
-            + ' ORDER BY OrderId DESC LIMIT ?, ?'
+            + ' ORDER BY OrderStatus LIMIT ?, ?'
             , [restaurant_id, startIndex, endIndex]
             , function(err, rows, fields){
                 if (err){
@@ -783,7 +783,7 @@ router.get('/maxOrder', jwtMW, function(req, res, next){
             + ' ORDER BY OrderId DESC'
             , [order_fbid]
             , function(err, rows, fields){
-
+                // OrderId D
                 if (err){
                     res.status(500);
                     res.send(JSON.stringify({success: false, message: err.message}));
