@@ -658,6 +658,116 @@ router.get('/addon',jwtMW, function(req, res, next){
 });
 
 /*===============================================================
+DISCOUNT and USER_DISCOUNT TABLE
+GET / POST
+================================================================*/
+
+router.get('/discount',jwtMW, function(req, res, next){
+    //console.log(req);
+    var discount_code = req.query.code;
+    //console.log(restaurant_id);
+    if (discount_code != undefined){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT code, value, description FROM `discount` WHERE code=?', [discount_code]
+            , function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: true, result: rows}));
+                    }
+                    else{
+                        res.send(JSON.stringify({success: false, message: "Empty"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing discount_code'}));
+    }
+});
+
+router.get('/checkDiscount',jwtMW, function(req, res, next){
+    //console.log(req);
+    var authorization = req.headers.authorization, decoded;
+    try{
+        decoded = jwt.verify(authorization.split(' ')[1], SECRET_KEY);
+    }
+    catch(err){
+        return res.status(401).send('unauthorized');
+    }
+
+    const fbid = decoded.fbid;
+    var discount_code = req.query.code;
+    //console.log(restaurant_id);
+    if (fbid != undefined){
+        req.getConnection(function(error, conn){
+            conn.query('SELECT * FROM `User_Discount` WHERE code=? AND fbid=?', [discount_code, fbid]
+            , function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.length > 0){
+                        res.send(JSON.stringify({success: false, message: "Exists"}));
+                    }
+                    else{
+                        res.send(JSON.stringify({success: true, message: "NoUse"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing fbid'}));
+    }
+});
+
+router.post('/applyDiscount',jwtMW, function(req, res, next){
+    //console.log(req);
+    var authorization = req.headers.authorization, decoded;
+    try{
+        decoded = jwt.verify(authorization.split(' ')[1], SECRET_KEY);
+    }
+    catch(err){
+        return res.status(401).send('unauthorized');
+    }
+
+    const fbid = decoded.fbid;
+    const discount_code = req.body.code;
+    //console.log(restaurant_id);
+    if (fbid != undefined && discount_code != undefined){
+        req.getConnection(function(error, conn){
+            conn.query('INSERT INTO `User_Discount`(FBID, Code) VALUES(?, ?) ON DUPLICATE KEY UPDATE FBID=?', [fbid, discount_code, fbid]
+            , function(err, rows, fields){
+
+                if (err){
+                    res.status(500);
+                    res.send(JSON.stringify({success: false, message: err.message}));
+                }
+                else {
+                    if (rows.affectedRows > 0){
+                        res.send(JSON.stringify({success: true, message: "Success"}));
+                    }
+                }   
+
+            });
+        });
+    }
+    else{
+        res.send(JSON.stringify({success: false, message: 'Missing fbid, code'}));
+    }
+});
+
+/*===============================================================
 ORDER TABLE
 GET / POST
 ================================================================*/
@@ -679,7 +789,7 @@ router.get('/orderbyrestaurant', jwtMW, function(req, res, next){
             + 'RestaurantId, TransactionId, '
             + 'CASE WHEN COD = 1 THEN \'TRUE\' ELSE \'FALSE\' END as COD,'
             + 'TotalPrice, NumOfItem FROM `order` WHERE restaurantId = ? AND NumOfitem > 0'
-            + ' ORDER BY OrderStatus LIMIT ?, ?'
+            + ' ORDER BY OrderStatus, OrderId DESC, OrderDate DESC LIMIT ?, ?'
             , [restaurant_id, startIndex, endIndex]
             , function(err, rows, fields){
                 if (err){
